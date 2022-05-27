@@ -24,3 +24,4 @@ resources/*.xml
 *.so
 *.o
 .vscode
+./retina_cpp/build/*
