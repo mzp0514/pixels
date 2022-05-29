@@ -94,5 +94,23 @@ target_link_libraries(
   fmt::fmt
 )
 
+add_executable(
+  performance_test
+  performance_test.cc
+)
+
+target_link_libraries(
+  performance_test
+  ${GTEST_BOTH_LIBRARIES}
+  ${ROCKS_DB_PATH}
+  # retina
+  mq
+  memory
+  util
+  port
+  log4cxx
+  fmt::fmt
+)
+
 # include(GoogleTest)
 # gtest_discover_tests(BufferTest)

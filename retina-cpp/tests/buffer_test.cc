@@ -71,8 +71,9 @@ class BufferTest : public ::testing::Test {
     SharedMemoryAllocator* flush_mem_alloc =
         new SharedMemoryAllocator(flush_mem, 40960, 4096);
     // db = new Index("s0", "t0");
-    buf_ = new Buffer(schema_name_, table_name_, 0, cols, flush_mem,
-                      flush_writer, flush_mem_alloc, query_writer, db);
+    buf_ = new Buffer(
+        schema_name_, table_name_, schema_name_ + '|' + table_name_ + "|0", 0,
+        cols, flush_mem, flush_writer, flush_mem_alloc, query_writer, db);
 
     buf_->Append(make_tuple(long_vals_[0], 5, str_vals_[0], 2), pk_,
                  ver_vals_[0]);

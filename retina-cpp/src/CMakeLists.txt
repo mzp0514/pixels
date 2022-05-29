@@ -36,7 +36,7 @@ endif()
 
 ## Retina proto
 # Proto file
-get_filename_component(rg_proto "../proto/retina_service.proto" ABSOLUTE)
+get_filename_component(rg_proto "../../proto/retina_service.proto" ABSOLUTE)
 get_filename_component(rg_proto_path "${rg_proto}" PATH)
 
 # Generated sources
@@ -57,7 +57,7 @@ add_custom_command(
 
 ## Retina Writer Proto
 # Proto file
-get_filename_component(rg_writer_proto "../proto/retina_writer.proto" ABSOLUTE)
+get_filename_component(rg_writer_proto "../../proto/retina_writer.proto" ABSOLUTE)
 get_filename_component(rg_writer_proto_path "${rg_writer_proto}" PATH)
 
 # Generated sources
@@ -74,6 +74,27 @@ add_custom_command(
         --plugin=protoc-gen-grpc="${_GRPC_CPP_PLUGIN_EXECUTABLE}"
         "${rg_writer_proto}"
       DEPENDS "${rg_writer_proto}")
+
+## Meta proto
+# Proto file
+get_filename_component(rg_meta_proto "../../proto/metadata.proto" ABSOLUTE)
+get_filename_component(rg_meta_proto_path "${rg_meta_proto}" PATH)
+
+# Generated sources
+set(rg_meta_proto_srcs "${CMAKE_CURRENT_BINARY_DIR}/metadata.pb.cc")
+set(rg_meta_proto_hdrs "${CMAKE_CURRENT_BINARY_DIR}/metadata.pb.h")
+set(rg_meta_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/metadata.grpc.pb.cc")
+set(rg_meta_grpc_hdrs "${CMAKE_CURRENT_BINARY_DIR}/metadata.grpc.pb.h")
+add_custom_command(
+      OUTPUT "${rg_meta_proto_srcs}" "${rg_meta_proto_hdrs}" "${rg_meta_grpc_srcs}" "${rg_meta_grpc_hdrs}"
+      COMMAND ${_PROTOBUF_PROTOC}
+      ARGS --grpc_out "${CMAKE_CURRENT_BINARY_DIR}"
+        --cpp_out "${CMAKE_CURRENT_BINARY_DIR}"
+        -I "${rg_meta_proto_path}"
+        --plugin=protoc-gen-grpc="${_GRPC_CPP_PLUGIN_EXECUTABLE}"
+        "${rg_meta_proto}"
+      DEPENDS "${rg_meta_proto}")
+
 
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
@@ -100,6 +121,16 @@ target_link_libraries(rg_writer_grpc_proto
   ${_GRPC_GRPCPP}
   ${_PROTOBUF_LIBPROTOBUF})
 
+# rg_meta_grpc_proto
+add_library(rg_meta_grpc_proto
+  ${rg_meta_grpc_srcs}
+  ${rg_meta_grpc_hdrs}
+  ${rg_meta_proto_srcs}
+  ${rg_meta_proto_hdrs})
+target_link_libraries(rg_meta_grpc_proto
+  ${_REFLECTION}
+  ${_GRPC_GRPCPP}
+  ${_PROTOBUF_LIBPROTOBUF})
 
 
 aux_source_directory(. DIR_LIB_SRCS)
@@ -123,6 +154,7 @@ foreach(_target
   target_link_libraries(${_target}
     rg_grpc_proto
     rg_writer_grpc_proto
+    rg_meta_grpc_proto
    # retina
     mq
     memory

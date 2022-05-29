@@ -24,7 +24,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
-
+#include <chrono>
 #include "retina_service.grpc.pb.h"
 
 /**
@@ -131,17 +131,17 @@ int main(int argc, char** argv) {
       grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
 
   const int row_num = 791;
-
-  long long_vals[4][row_num][5];
-  std::string str_vals[4][row_num][2];
-  long ver_vals[4][row_num];
-  int indices[4][row_num];
+  const int batch_num = 10;
+  long long_vals[batch_num][row_num][5];
+  std::string str_vals[batch_num][row_num][2];
+  long ver_vals[batch_num][row_num];
+  int indices[batch_num][row_num];
   int pk = 6;
   std::string schema_name = "s0";
   std::string table_name = "t0";
 
   int u = 0;
-  for (int k = 0; k < 4; k++) {
+  for (int k = 0; k < batch_num; k++) {
     for (int i = 0; i < row_num; i++) {
       indices[k][i] = i;
       for (int j = 0; j < 2; j++) {
@@ -159,7 +159,9 @@ int main(int argc, char** argv) {
     });
   }
 
-  for (int k = 0; k < 1; k++) {
+
+  auto start = std::chrono::steady_clock::now();
+  for (int k = 0; k < batch_num; k++) {
     auto long_vals_k = long_vals[k];
     auto str_vals_k = str_vals[k];
     auto ver_vals_k = ver_vals[k];
@@ -183,6 +185,11 @@ int main(int argc, char** argv) {
       std::cout << "Insert response: " << reply << std::endl;
     }
   }
+  auto end = std::chrono::steady_clock::now();
+
+  std::cout << "Elapsed time in milliseconds: "
+    << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+    << " ms" << std::endl;
 
   return 0;
 }

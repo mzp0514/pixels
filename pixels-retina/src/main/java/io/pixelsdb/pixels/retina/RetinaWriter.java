@@ -108,15 +108,13 @@ public class RetinaWriter {
             List<Column> columns = metadataService.getColumns(schemaName, tableName);
             StringBuilder builder = new StringBuilder();
             builder.append("struct<");
-            String prefix = "struct<";
             for (Column col : columns) {
-                builder.append(prefix);
                 builder.append(col.getName());
                 builder.append(":");
                 builder.append(col.getType());
-                prefix = ",";
+                builder.append(",");
             }
-            builder.append(">");
+            builder.append("version:long>");
             String schemaStr = builder.toString();
             schema = TypeDescription.fromString(schemaStr);
             schemas.put(key, schema);

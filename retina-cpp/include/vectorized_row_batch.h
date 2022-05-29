@@ -59,16 +59,16 @@ class VectorizedRowBatch {
 
   void Append(int index, std::vector<Slice> values, int pk, long ts) {
     assert(values.size() == num_cols_ - 1);
-    std::cout << "append row: ";
-    for (int i = 0; i < values.size(); i++) {
-      cols_[i]->Add(index, values[i]);
-      if (cols_[i]->value_type() == ValueType::BYTES) {
-        std::cout << values[i].ToString() << " " << values[i].size() << " ";
-      } else if (cols_[i]->value_type() == ValueType::LONG) {
-        std::cout << *(long*)values[i].data() << " ";
-      }
-    }
-    std::cout << std::endl;
+    // std::cout << "append row: ";
+    // for (int i = 0; i < values.size(); i++) {
+    //   cols_[i]->Add(index, values[i]);
+    //   if (cols_[i]->value_type() == ValueType::BYTES) {
+    //     std::cout << values[i].ToString() << " " << values[i].size() << " ";
+    //   } else if (cols_[i]->value_type() == ValueType::LONG) {
+    //     std::cout << *(long*)values[i].data() << " ";
+    //   }
+    // }
+    // std::cout << std::endl;
     Slice version_val = Slice((char*)&ts, sizeof(long));
     cols_[num_cols_ - 1]->Add(index, version_val);
     cur_length_ = std::max(index + 1, cur_length_);

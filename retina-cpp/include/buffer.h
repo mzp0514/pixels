@@ -39,6 +39,7 @@
 #include "memory/concurrent_arena.h"
 #ifndef COMPILE_UNIT_TESTS
 #include "retina_writer_client.h"
+#include "metadata_client.h"
 #endif
 #include "rocksdb/comparator.h"
 #include "rocksdb/memtablerep.h"
@@ -121,7 +122,7 @@ static void Decode(const char* key, Slice& user_key, int& value) {
   const char* key_ptr = rocksdb::GetVarint32Ptr(key, key + 5, &key_length);
   user_key = Slice(key_ptr, key_length);
   value = *(int*)(key_ptr + key_length);
-  std::cout << "decode: " << user_key.ToString() << " " << value << std::endl;
+  // std::cout << "decode: " << user_key.ToString() << " " << value << std::endl;
 }
 
 /**
@@ -146,13 +147,15 @@ static int DecodeValue(const char* key) {
 class Buffer {
  public:
 #ifndef COMPILE_UNIT_TESTS
-  Buffer(std::string schema_name, std::string table_name, int rgid,
-         std::vector<ValueType>& columns,
+  Buffer(std::string schema_name, std::string table_name, std::string file_path,
+         int rgid, std::vector<ValueType>& columns,
          std::shared_ptr<stm::SharedMemory> flush_mem, Writer* flush_writer,
          SharedMemoryAllocator* flush_mem_alloc, Writer* query_writer,
-         RetinaWriterClient* writer_client, Index* db) {
+         RetinaWriterClient* writer_client, MetadataClient* metadata_client,
+         Index* db) {
     schema_name_ = schema_name;
     table_name_ = table_name;
+    file_path_ = file_path;
     rgid_ = rgid;
     columns_ = columns;
     num_cols_ = columns.size() + 1;
@@ -179,6 +182,7 @@ class Buffer {
     flush_writer_ = flush_writer;
     flush_mem_alloc_ = flush_mem_alloc;
     writer_client_ = writer_client;
+    metadata_client_ = metadata_client;
     db_ = db;
     batch_ = new VectorizedRowBatch(rgid, columns,
                                     MAX_BUFFER_SIZE / min_row_size_ + 1);
@@ -187,13 +191,14 @@ class Buffer {
   }
 #endif
 
-  Buffer(std::string schema_name, std::string table_name, int rgid,
-         std::vector<ValueType>& columns,
+  Buffer(std::string schema_name, std::string table_name, std::string file_path,
+         int rgid, std::vector<ValueType>& columns,
          std::shared_ptr<stm::SharedMemory> flush_mem, Writer* flush_writer,
          SharedMemoryAllocator* flush_mem_alloc, Writer* query_writer,
          Index* db) {
     schema_name_ = schema_name;
     table_name_ = table_name;
+    file_path_ = file_path;
     rgid_ = rgid;
     columns_ = columns;
     num_cols_ = columns.size() + 1;
@@ -318,9 +323,6 @@ class Buffer {
   }
 
   void Flush() {
-    // File path generation mechanism to be decided
-    std::string file_path = schema_name_ + "|" + table_name_;
-
     int* indices = batch_->indices();
     int i = 0;
     LOG4CXX_DEBUG(logger, "prepare to flush...");
@@ -333,7 +335,7 @@ class Buffer {
       Decode(iter.key(), key, rid);
 
       // Insert to db
-      db_->put(schema_name_, table_name_, key, file_path, rgid_, i);
+      db_->put(schema_name_, table_name_, key, file_path_, rgid_, i);
 
       // Construct sorted indices
       indices[i++] = rid;
@@ -358,7 +360,7 @@ class Buffer {
     auto t = std::packaged_task<void()>(
         std::bind(&VectorizedRowBatch::SortedFlush, batch_, flush_mem_, pos));
     auto callback =
-        std::bind(&Buffer::FlushCallBack, this, rgid_, pos, file_path);
+        std::bind(&Buffer::FlushCallBack, this, rgid_, pos, file_path_);
     WriteTask task = {std::move(t), callback};  // wrap the function
     // std::future<void> f = t.get_future();     // get a future
     flush_writer_->Submit(task);
@@ -391,6 +393,10 @@ class Buffer {
       }
     }
 
+#ifndef COMPILE_UNIT_TESTS
+    metadata_client_->UpdateRowGroup(rgid);
+#endif
+
     // Release shared memory slot
     flush_mem_alloc_->Release(pos);
     std::cout << "Flush callback finished..." << std::endl;
@@ -406,6 +412,7 @@ class Buffer {
   // Meta data
   std::string schema_name_;
   std::string table_name_;
+  std::string file_path_;
   int rgid_;
 
   // Storage
@@ -429,6 +436,7 @@ class Buffer {
   Writer* query_writer_;
 #ifndef COMPILE_UNIT_TESTS
   RetinaWriterClient* writer_client_;
+  MetadataClient* metadata_client_;
 #endif
   std::mutex mu_;
   // std::condition_variable cond;

@@ -23,8 +23,10 @@
 #include "buffer.h"
 #include "index.h"
 #ifndef COMPILE_UNIT_TESTS
+#include "metadata_client.h"
 #include "retina_writer_client.h"
 #endif
+
 #include "row_group_id_manager.h"
 #include "shared_memory_allocator.h"
 #include "version_manager.h"
@@ -59,6 +61,9 @@ class RetinaServiceImpl {
 #ifndef COMPILE_UNIT_TESTS
     writer_client_ = new RetinaWriterClient(grpc::CreateChannel(
         "localhost:50052", grpc::InsecureChannelCredentials()));
+
+    metadata_client_ = new MetadataClient(grpc::CreateChannel(
+        "localhost:18888", grpc::InsecureChannelCredentials()));
 #endif
 
     db_ = new Index();
@@ -88,13 +93,17 @@ class RetinaServiceImpl {
       buffer->Append(values, pk_id, timestamp);
     } else {
       int rgid = RowGroupIdManager::next_rgid();
+      std::string file_path =
+          schema_name + '|' + table_name + '|' + std::to_string(rgid);
 #ifndef COMPILE_UNIT_TESTS
-      buffer = new Buffer(schema_name, table_name, rgid, types, flush_mem_,
-                          flush_writer_, flush_mem_alloc_, query_writer_,
-                          writer_client_, db_);
+      buffer = new Buffer(schema_name, table_name, file_path, rgid, types,
+                          flush_mem_, flush_writer_, flush_mem_alloc_,
+                          query_writer_, writer_client_, metadata_client_, db_);
+      metadata_client_->AddRowGroup(rgid, file_path);
 #else
-      buffer = new Buffer(schema_name, table_name, rgid, types, flush_mem_,
-                          flush_writer_, flush_mem_alloc_, query_writer_, db_);
+      buffer = new Buffer(schema_name, table_name, file_path, rgid, types,
+                          flush_mem_, flush_writer_, flush_mem_alloc_,
+                          query_writer_, db_);
 #endif
       buffer->Append(values, pk_id, timestamp);
       buffers_[key] = buffer;
@@ -255,6 +264,7 @@ class RetinaServiceImpl {
 
 #ifndef COMPILE_UNIT_TESTS
   RetinaWriterClient* writer_client_;
+  MetadataClient* metadata_client_;
 #endif
 
   Index* db_;  // schema:table:pk -> filepath:rgid:rid "s0:t0:key0", "0:0:0"
